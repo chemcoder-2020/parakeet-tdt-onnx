@@ -215,8 +215,10 @@ python -m venv .venv && source .venv/bin/activate     # or: uv venv .venv
 pip install "onnx-asr[hub]==0.12.0" onnxruntime "fastapi>=0.115" "uvicorn[standard]>=0.30" \
             "python-multipart>=0.0.9" "silero-vad>=6.0.0" "psutil>=5.0" "numpy<2"
 
+# fastest CPU profile we measured (Apple Silicon — see notes for other CPUs):
 PARAKEET_USE_GPU=false \
 PARAKEET_DEFAULT_MODEL=parakeet-tdt-0.6b-v3 \
+PARAKEET_ORT_INTRA_THREADS=4 \
 python server.py                                     # serves on http://127.0.0.1:5092
 ```
 
@@ -227,6 +229,15 @@ curl -s -F "file=@testdata/bcn_weather.wav" -F "model=parakeet-tdt-0.6b-v3" \
      -F "response_format=text" http://127.0.0.1:5092/v1/audio/transcriptions
 ```
 
+Timing it exactly the way the table above was measured (warmed, curl wall — expect
+~0.35–0.38 s for this clip with the launch command above):
+
+```bash
+for i in 1 2 3; do curl -s -o /dev/null -w "run$i: %{time_total}s\n" \
+    -F "file=@testdata/bcn_weather.wav" -F "model=parakeet-tdt-0.6b-v3" \
+    -F "response_format=text" http://127.0.0.1:5092/v1/audio/transcriptions; done
+```
+
 Tuning notes from our run:
 
 - `onnx-asr[hub]` does **not** pull an ONNX Runtime wheel — install `onnxruntime`
@@ -234,8 +245,10 @@ Tuning notes from our run:
 - The default is `PARAKEET_USE_GPU=true` (TensorRT); CPU boxes must set
   `PARAKEET_USE_GPU=false`.
 - **Apple Silicon:** it sizes ORT threads to detected physical cores (8 on an M1), but 4 is
-  ~35% faster there — set `PARAKEET_ORT_INTRA_THREADS=4` (same as this repo's thread sweep:
-  4 threads 0.390 s vs 8 threads 0.635 s on bcn_weather).
+  ~35% faster there — that's why the launch block above sets
+  `PARAKEET_ORT_INTRA_THREADS=4` (same 4-vs-8 finding as this repo's thread sweep: 0.390 s
+  vs 0.635 s on bcn_weather). On other CPUs leave it unset — auto uses physical cores,
+  which is the profile the project benchmarked on x86.
 - Files longer than 75 s are split at VAD pause midpoints and inferred by its parallel pool:
   `PARAKEET_CHUNK_TARGET_SEC` (60 s default on CPU), `PARAKEET_INFER_WORKERS` (4). The first
   long request also loads the Silero VAD model (~4 s one-time).
