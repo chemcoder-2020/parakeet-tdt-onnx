@@ -178,6 +178,71 @@ python scripts/record_reference.py --quantization float32
 python scripts/parity_probe.py
 ```
 
+## Serving it: OpenAI-compatible API (third-party, verified on this machine)
+
+If you want an HTTP endpoint rather than the CLI/library — for Open WebUI, any OpenAI SDK
+client, or a shared transcription box — the mature third-party server built on the **same
+engine** is
+[`groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai`](https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai):
+FastAPI, OpenAI-compatible `POST /v1/audio/transcriptions`, int8 CPU default, Silero-VAD
+chunking with a parallel inference pool for long files. We ran it CPU-only on the same M1
+used for this repo's benchmarks and cross-checked it against this repo's references:
+
+| workload (CPU, int8) | wall | effective |
+| --- | --- | --- |
+| bcn_weather (11.0 s), `PARAKEET_ORT_INTRA_THREADS=4` | **0.35–0.38 s** | ~30× realtime |
+| bcn_weather (11.0 s), its auto-detected 8 threads | 0.53–0.72 s | ~19× |
+| mary_had_lamb (16.0 s), 4 threads | 0.51–0.54 s | ~30× |
+| 263 s file — 5 VAD chunks, parallel pool | **9.3 s** (4 threads) / 10.7 s (8 threads) | ~28× / ~25× |
+| 4 × concurrent 11 s clips | 1.7 s wall | 25.6× aggregate |
+
+Spot check: on bcn_weather and mary_had_lamb its int8 transcripts are **byte-identical** to
+this repo's recorded references. Verdict: genuinely fast on CPU — and expectedly so, because
+it is the same engine (istupakov int8 graphs + onnxruntime CPU); its added value is serving
+ergonomics (HTTP API, VAD chunk fan-out for long audio, WAV fast path), not a different
+inference path. On short single clips the two are a wash (~0.35–0.4 s on bcn_weather); long
+files benefit from its chunk parallelism.
+
+### Run it CPU-only
+
+Its shipped `requirements.txt` pins `onnxruntime-gpu` + `tensorrt-cu12` and its default
+profile is GPU/TensorRT — unsuitable for Macs and CPU-only boxes. This is the recipe we
+verified (Python 3.11; installs in ~2 min):
+
+```bash
+git clone https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai && cd parakeet-tdt-0.6b-v3-fastapi-openai
+python -m venv .venv && source .venv/bin/activate     # or: uv venv .venv
+pip install "onnx-asr[hub]==0.12.0" onnxruntime "fastapi>=0.115" "uvicorn[standard]>=0.30" \
+            "python-multipart>=0.0.9" "silero-vad>=6.0.0" "psutil>=5.0" "numpy<2"
+
+PARAKEET_USE_GPU=false \
+PARAKEET_DEFAULT_MODEL=parakeet-tdt-0.6b-v3 \
+python server.py                                     # serves on http://127.0.0.1:5092
+```
+
+Then, OpenAI style:
+
+```bash
+curl -s -F "file=@testdata/bcn_weather.wav" -F "model=parakeet-tdt-0.6b-v3" \
+     -F "response_format=text" http://127.0.0.1:5092/v1/audio/transcriptions
+```
+
+Tuning notes from our run:
+
+- `onnx-asr[hub]` does **not** pull an ONNX Runtime wheel — install `onnxruntime`
+  explicitly (their requirements do this via the GPU build; on CPU you want the plain one).
+- The default is `PARAKEET_USE_GPU=true` (TensorRT); CPU boxes must set
+  `PARAKEET_USE_GPU=false`.
+- **Apple Silicon:** it sizes ORT threads to detected physical cores (8 on an M1), but 4 is
+  ~35% faster there — set `PARAKEET_ORT_INTRA_THREADS=4` (same as this repo's thread sweep:
+  4 threads 0.390 s vs 8 threads 0.635 s on bcn_weather).
+- Files longer than 75 s are split at VAD pause midpoints and inferred by its parallel pool:
+  `PARAKEET_CHUNK_TARGET_SEC` (60 s default on CPU), `PARAKEET_INFER_WORKERS` (4). The first
+  long request also loads the Silero VAD model (~4 s one-time).
+- At the time of writing that repo contained no LICENSE file (its README shows an MIT
+  badge) — confirm terms for your use case. It is an independent project; issues with it
+  belong upstream.
+
 ## How it works
 
 ```
