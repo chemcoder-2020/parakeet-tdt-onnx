@@ -1,0 +1,33 @@
+# NOTICE
+
+`parakeet-tdt-onnx` is a self-contained ONNX Runtime runner for NVIDIA's
+parakeet-tdt-0.6b-v3 speech recognizer, built on the public ONNX export by
+Ivan Stupakov.
+
+## Model
+
+- Base model: NVIDIA **`parakeet-tdt-0.6b-v3`** (FastConformer-TDT, 25 languages),
+  © NVIDIA, licensed **CC-BY-4.0**.
+- ONNX export: **`istupakov/parakeet-tdt-0.6b-v3-onnx`** on Hugging Face
+  (CC-BY-4.0), produced with NVIDIA NeMo's `model.export`. Model files are
+  downloaded at runtime by `scripts/download_model.py` and are **not**
+  redistributed in this repository.
+
+## Verification oracle
+
+- **`onnx-asr`** (pip package, MIT license, github.com/istupakov/onnx-asr) is
+  used only by `scripts/record_reference.py` to record the reference
+  transcripts that `scripts/verify.py` checks against. It is never a runtime
+  dependency of this package.
+- The greedy TDT decoding loop in `parakeet_tdt_onnx/model.py` follows the
+  semantics of NeMo's `GreedyTDTInfer` as implemented in onnx-asr, and the
+  space normalization in `parakeet_tdt_onnx/tokenizer.py` intentionally
+  replicates onnx-asr's `DECODE_SPACE_PATTERN` (MIT) so decoded text is
+  byte-identical for identical token sequences.
+
+## Test audio
+
+- `testdata/*.wav` originate from
+  `hf-internal-testing/dummy-audio-samples` (which documents its own
+  provenance: LibriSpeech, FLEURS, and public fixture recordings) and were
+  converted to 16 kHz mono PCM16 with ffmpeg.

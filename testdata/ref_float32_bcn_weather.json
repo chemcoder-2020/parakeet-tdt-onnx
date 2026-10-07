@@ -1,0 +1,4 @@
+{
+  "text": "Yesterday it was 35 degrees in Barcelona, but today the temperature will go down to minus 20 degrees.",
+  "oracle": "onnx-asr decode loop fed this port's nemo128.onnx features (float32); recorded by scripts/record_reference.py"
+}

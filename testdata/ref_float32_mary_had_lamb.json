@@ -1,0 +1,4 @@
+{
+  "text": "The uh first words I spoke in the original phonograph, a little piece of blacks and poetry. Mary had a little lamb, it squeaked with white as snow, and everywhere that Mary went, the lamb was sure to go.",
+  "oracle": "onnx-asr decode loop fed this port's nemo128.onnx features (float32); recorded by scripts/record_reference.py"
+}

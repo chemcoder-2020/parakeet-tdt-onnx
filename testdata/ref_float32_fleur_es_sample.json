@@ -1,0 +1,4 @@
+{
+  "text": "Esto parece tener sentido, ya que en la Tierra no se percibe su movimiento,¿cierto?",
+  "oracle": "onnx-asr decode loop fed this port's nemo128.onnx features (float32); recorded by scripts/record_reference.py"
+}

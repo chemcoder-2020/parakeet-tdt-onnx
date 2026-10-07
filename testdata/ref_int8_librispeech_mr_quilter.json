@@ -1,0 +1,4 @@
+{
+  "text": "mister Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+  "oracle": "onnx-asr decode loop fed this port's nemo128.onnx features (int8); recorded by scripts/record_reference.py"
+}

@@ -1,0 +1,4 @@
+{
+  "text": "Yesterday it was uh thirty five degrees in Barcelona, but today uh the temperature will go down to minus uh twenty degrees.",
+  "oracle": "onnx-asr decode loop fed this port's nemo128.onnx features (int8); recorded by scripts/record_reference.py"
+}
